@@ -3,16 +3,16 @@
 <#
 .SYNOPSIS
     This script will help you to remove old user accounts.
-    # To Exclude users configure line 27
+    # To Exclude users configure line 31
     # You must set the threshold "$inactiveThreshold" on line 30 (default value is 20 days), If the user has been inactive for more days, it will be up for deletion
-    # Remove "-WhatIf" on line-193 to remove Script's Safety, and it will remove users
+    # Remove "-WhatIf" on line-222 to remove Script's Safety, and it will remove users
     See "Script Configuration" for more functions 
 
 .DESCRIPTION
     Detailed description not here yet.
 
 .NOTES
-    File Name      : Delete_user.ps1
+    File Name      : Delete_users.ps1
     Version        : 1.0.1
     Author         : Robert Lohman
     Prerequisite   : Ensure that the major powershell version is 3 or higher to use
@@ -28,7 +28,7 @@
 $excludedUsers = @("Administratör", "sccm_admi", "sccm_na")
 
 # Set the threshold for accounts inactivity (days). If the user has been inactive for more days, it will be up for deletion
-$inactiveThreshold = (Get-Date).AddDays(-0)
+$inactiveThreshold = (Get-Date).AddDays(-20)
 
 # Get the current date for log filename
 $dateStamp = Get-Date -Format "yyyyMMdd"
