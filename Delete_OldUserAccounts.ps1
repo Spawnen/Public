@@ -1,28 +1,24 @@
-
-
 <#
 .SYNOPSIS
-    This script will help you to remove old user accounts.
-    # To Exclude users configure line 31
-    # You must set the threshold "$inactiveThreshold" on line 30 (default value is 20 days), If the user has been inactive for more days, it will be up for deletion
-    # Remove "-WhatIf" on line-222 to remove Script's Safety, and it will remove users
-    See "Script Configuration" for more functions 
+    This script removes old user accounts based on inactivity.
 
 .DESCRIPTION
-    Detailed description not here yet.
+    This script identifies and removes user accounts that have been inactive for a specified period. Excluded users can be configured, and the inactivity threshold is set to 20 days by default.
 
 .NOTES
-    File Name      : Delete_users.ps1
-    Version        : 1.0.1
+    File Name      : Delete_OldUserAccouints.ps1
+    Version        : 1.0.2 - 2024-01-12
     Author         : Robert Lohman
-    Prerequisite   : Ensure that the major powershell version is 3 or higher to use
-    
-
+    Prerequisite   : PowerShell version 3 or higher
 
 #>
+
 ###########################################
 # Script Configuration
 ###########################################
+
+#IMPORTANT! Set it to $true to enable -WhatIf (only run script in test-mode), set to $false to remove -WhatIf (will delete user accounts)
+$EnableWhatIf = $true
 
 # Set exclusion usernames
 $excludedUsers = @("Administratör", "sccm_admi", "sccm_na")
@@ -30,18 +26,18 @@ $excludedUsers = @("Administratör", "sccm_admi", "sccm_na")
 # Set the threshold for accounts inactivity (days). If the user has been inactive for more days, it will be up for deletion
 $inactiveThreshold = (Get-Date).AddDays(-20)
 
-# Get the current date for log filename
-$dateStamp = Get-Date -Format "yyyyMMdd"
-
 # Home of Log-file 
-$LogFolderPath ="C:\windows\temp\Deletedusers"
-$logPath = ("$LogFolderPath\$($env:computername)_$($dateStamp)_Removedusers.log")
+$LogFolderPath ="C:\windows\temp\DeletedUsers"
+$logPath = Join-Path $LogFolderPath "$($env:computername)_$($dateStamp)_RemovedUsers.log"
 
-# Set destination to FileShare
+# Set destination to File-Share for sending logging (Disabled)
 $LogdestinationPath = "\\sccm\logs$\deletedusers"
 
 
+
 ############################################
+# Get the current date for log filename
+$dateStamp = Get-Date -Format "yyyyMMdd"
 
 if (Test-Path $logPath -PathType Leaf) {
     # File exists, so remove it
@@ -52,7 +48,10 @@ if (Test-Path $logPath -PathType Leaf) {
 }
 
 ### Disk calculations
+# Get the free disk space
 $FreespaceonC = [math]::Round((Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='C:'" | Select-Object -ExpandProperty FreeSpace) / 1GB, 0)
+# Get the total disk size
+$TotalDiskSpace = [math]::Round((Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='C:'" | Select-Object -ExpandProperty Size) / 1GB, 0)
 
 ###########################################
 # Create LogFolder if not exists
@@ -72,7 +71,7 @@ function Create-Folder {
     }
 }
 
-Create-Folder -LogFolderPath ($LogFolderPath)
+Create-Folder -LogFolderPath $LogFolderPath
 
 ###########################################
 # Logging Functions
@@ -131,9 +130,6 @@ $timestamp = Get-Date -Format "yyyy.MM.dd-HH:mm:ss"
 # Initialize the log file
 Add-Content -Path $logPath -Value "$($timestamp) - Script Execution Started"
 
-
-# Get the total disk size
-$TotalDiskSpace = [math]::Round((Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='C:'" | Select-Object -ExpandProperty Size) / 1GB, 0)
 
 # Get the remaining disk space on the C: drive before any operation
 $freeDiskSpaceBefore = $FreespaceonC
@@ -203,7 +199,6 @@ if ($usersToKeep.Count -gt 0) {
     Write-Host "No users found to save (all users found get's deleted). `r`n" -ForegroundColor Red -BackgroundColor Black
 }
 
-
 # Display the users to be deleted if there are users to delete
 if ($usersToDelete.Count -gt 0) {
     Write-Host "Users to delete:" -ForegroundColor Red -BackgroundColor Black
@@ -219,8 +214,13 @@ if ($usersToDelete.Count -gt 0) {
 foreach ($userToDelete in $usersToDelete) {
     try {
         $userToDeleteName = $userToDelete["Username"]
-        Remove-CimInstance -CimInstance (Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath.Split('\')[-1] -eq $userToDeleteName }) -WhatIf
-        Write-Host "User: $userToDeleteName is Deleted!" -ForegroundColor White -BackgroundColor DarkCyan
+        
+        if ($EnableWhatIf) {
+            Write-Host "WhatIf: Removing user $userToDeleteName" -ForegroundColor Yellow
+        } else {
+            Remove-CimInstance -CimInstance (Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath.Split('\')[-1] -eq $userToDeleteName }) -WhatIf:$EnableWhatIf
+            Write-Host "User: $userToDeleteName is Deleted!" -ForegroundColor White -BackgroundColor DarkCyan
+        }
     }
     catch {
         $errorMessage = $_.Exception.Message
@@ -250,11 +250,14 @@ $TotalSpaceSaved = $freeDiskSpaceBefore - $freeDiskSpaceAfter
 $logMessage = "Gained this amount of space: $TotalSpaceSaved GB`r`n"
 Log-Message -Message $logMessage -LogFilePath $logPath
 
-
 # Log the completion of the script
 Add-Content -Path $logPath -Value "$(Get-Date) - Script Execution Completed"
 
 
-# Copy log to Fileshare
-#Start-Sleep 3
-# Robocopy "$LogFolderPath" "$LogdestinationPath" /R:20
+# Copy log to Fileshare if $LogdestinationPath is not null
+if ($LogdestinationPath) {
+    Start-Sleep 3
+    Robocopy "$LogFolderPath" "$LogdestinationPath" /R:20
+} else {
+    Write-Host "Log destination path is not set. Skipping log copy." -ForegroundColor Yellow
+}
