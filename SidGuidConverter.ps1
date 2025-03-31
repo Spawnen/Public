@@ -7,9 +7,15 @@ The SidGuidConverter script includes two main functions:
 Convert-AzureAdObjectIdToSid: Converts an Azure AD Object ID (GUID) to an Azure AD SID (Security Identifier).
 Convert-SidToAzureAdObjectId: Converts an Azure AD SID back to an Object ID (GUID).
 
-The script is designed to work specifically with Azure AD SIDs starting with 'S-1-12-1-' and can be deployed via Intune or run locally.
+The script is designed to work specifically with Azure AD SIDs starting with 'S-1-12-1-'.
 
-Author: Robert Lohman
+    Version:        1.0.0
+    Author:         Robert Lohman
+    Creation Date:  30.03.2025
+    Updated:    
+    Version history:
+        1.0.0 - (30.03.2025) Script released
+
 The script is provided "AS IS" with no warranties.
 #>
 
