@@ -1,98 +1,83 @@
 <#
 .SYNOPSIS
-    Professional Azure AD SID and Object ID Conversion Script
+    Azure AD SID and Object ID Conversion Script
 
 .DESCRIPTION
     This script provides functions to convert Azure AD SIDs to Object IDs and vice versa.
-    It is specifically designed to work with Azure AD SIDs starting with 'S-1-12-1-'.
+    It supports Azure AD SIDs starting with 'S-1-12-1-' and allows for user-defined input.
 
-.FUNCTIONS
-    Convert-AzureAdObjectIdToSid - Converts an Azure AD Object ID (GUID) to an Azure AD SID (Security Identifier).
-    Convert-SidToAzureAdObjectId - Converts an Azure AD SID back to an Object ID (GUID).
+.PARAMETERS
+    $objectId - The Azure AD Object ID (GUID) to convert to a SID.
+    $sidTest  - The Azure AD SID to convert to an Object ID.
 
 .NOTES
-    Version:        1.0.0
+    Version:        1.1.0
     Author:         Robert Lohman
     Creation Date:  30.03.2025
-    Updated:        30.03.2025
+    Updated:        31.03.2025
 
     Version history:
         1.0.0 - Initial release
+        1.0.1 - Fixed byte order conversion in SID to Object ID conversion
+        1.1.0 - Improved script structure, added user-friendly input handling, enhanced logging
 
     License: Provided "AS IS" with no warranties. Use at your own risk.
 
 #>
 
 # ========================
-# Variables
+# USER-DEFINED VARIABLES (Edit these as needed)
 # ========================
 
-# Enter your SID here
-$sidTest = ""
-
-# Enter your Object ID here
-$objectId = ""
-
+$objectId = ""  # Provide the Azure AD Object ID (GUID) here. Leave blank if not needed.
+$sidTest = ""   # Provide the Azure AD SID here. Leave blank if not needed.
 
 # ========================
 # Function: Convert-AzureAdObjectIdToSid
 # ========================
 
 function Convert-AzureAdObjectIdToSid {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [String] $ObjectID
-    )
+
+    param([String] $ObjectId)
 
     try {
-        $bytes = [Guid]::Parse($ObjectID).ToByteArray()
-        $array = New-Object 'UInt32[]' 4
-
-        [Buffer]::BlockCopy($bytes, 0, $array, 0, 16)
-        $sid = "S-1-12-1-" + ($array -join '-')
-        return $sid
+        if (![string]::IsNullOrWhiteSpace($ObjectId)) {
+            $bytes = [Guid]::Parse($ObjectId).ToByteArray()
+            $array = New-Object 'UInt32[]' 4
+            [Buffer]::BlockCopy($bytes, 0, $array, 0, 16)
+            $sid = "S-1-12-1-$array".Replace(' ', '-')
+            return $sid
+        } else {
+            Write-Host "No Object ID provided. Conversion skipped." -ForegroundColor Yellow
+        }
     }
     catch {
-        Write-Error "Failed to convert Object ID to SID. Verify that the Object ID is in the correct format and try again. Error message: $_"
+        Write-Host "Failed to convert Object ID to SID. Error: $_" -ForegroundColor Red
     }
 }
 
 # ========================
-# Function: Convert-SidToAzureAdObjectId
+# Function: Convert-AzureAdSidToObjectId
 # ========================
 
-function Convert-SidToAzureAdObjectId {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$SID
-    )
+function Convert-AzureAdSidToObjectId {
+
+    param([String] $Sid)
 
     try {
-        if ($SID -notmatch "^S-1-12-1-") {
-            Throw "This script only supports SIDs that start with 'S-1-12-1-'"
+        if (![string]::IsNullOrWhiteSpace($Sid)) {
+            $text = $Sid.Replace('S-1-12-1-', '')
+            $array = [UInt32[]]$text.Split('-')
+            $bytes = New-Object 'Byte[]' 16
+            [Buffer]::BlockCopy($array, 0, $bytes, 0, 16)
+            [Guid]$guid = $bytes
+            return $guid
+        } else {
+            Write-Host "No SID provided. Conversion skipped." -ForegroundColor Yellow
         }
-
-        $parts = $SID -replace "^S-1-12-1-", "" -split '-'
-
-        if ($parts.Count -ne 4) {
-            Throw "The SID must contain exactly four parts after 'S-1-12-1-'"
-        }
-
-        $bytes = New-Object byte[] 16
-
-        for ($i = 0; $i -lt 4; $i++) {
-            $partBytes = [BitConverter]::GetBytes([UInt32]::Parse($parts[$i]))
-            [Array]::Reverse($partBytes)
-            [Array]::Copy($partBytes, 0, $bytes, $i * 4, 4)
-        }
-
-        $guid = New-Object Guid (,$bytes)
-        return $guid.ToString()
     }
     catch {
-        Write-Error "Failed to convert SID to Object ID. Verify that the SID is in the correct format and try again. Error message: $_"
+        Write-Host "Failed to convert SID to Object ID. Error: $_" -ForegroundColor Red
     }
 }
 
@@ -100,16 +85,26 @@ function Convert-SidToAzureAdObjectId {
 # Conversion Operations
 # ========================
 
-if ($objectId -ne "") {
-    $sid = Convert-AzureAdObjectIdToSid -ObjectID $objectId
-    Write-Output "Object ID to SID: $sid"
-} else {
-    Write-Output "No Object ID provided, skipping conversion."
+Write-Host "Starting Azure AD SID and Object ID Conversion Script..." -ForegroundColor Cyan
+
+# Convert Object ID to SID if Object ID is provided
+if (![string]::IsNullOrWhiteSpace($objectId)) {
+    $sid = Convert-AzureAdObjectIdToSid -ObjectId $objectId
+    if ($sid) {
+        Write-Host "Object ID to SID Conversion:" -ForegroundColor Green
+        Write-Host "Input Object ID: $objectId" -ForegroundColor DarkGray
+        Write-Host "Converted SID:   $sid" -ForegroundColor White
+    }
 }
 
-if ($sidTest -ne "") {
-    $objectIdTest = Convert-SidToAzureAdObjectId -SID $sidTest
-    Write-Output "SID to Object ID: $objectIdTest"
-} else {
-    Write-Output "No SID provided, skipping conversion."
+# Convert SID to Object ID if SID is provided
+if (![string]::IsNullOrWhiteSpace($sidTest)) {
+    $objectIdTest = Convert-AzureAdSidToObjectId -Sid $sidTest
+    if ($objectIdTest) {
+        Write-Host "`nSID to Object ID Conversion:" -ForegroundColor Green
+        Write-Host "Input SID:       $sidTest" -ForegroundColor DarkGray
+        Write-Host "Converted Object ID: $objectIdTest" -ForegroundColor White
+    }
 }
+
+Write-Host "`nScript completed." -ForegroundColor Cyan
