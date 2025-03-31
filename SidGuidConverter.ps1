@@ -1,35 +1,47 @@
 <#
 .SYNOPSIS
-This script provides functions to convert Azure AD SIDs to Object IDs and vice versa.
+    Professional Azure AD SID and Object ID Conversion Script
 
 .DESCRIPTION
-The SidGuidConverter script includes two main functions:
-Convert-AzureAdObjectIdToSid: Converts an Azure AD Object ID (GUID) to an Azure AD SID (Security Identifier).
-Convert-SidToAzureAdObjectId: Converts an Azure AD SID back to an Object ID (GUID).
+    This script provides functions to convert Azure AD SIDs to Object IDs and vice versa.
+    It is specifically designed to work with Azure AD SIDs starting with 'S-1-12-1-'.
 
-The script is designed to work specifically with Azure AD SIDs starting with 'S-1-12-1-'.
+.FUNCTIONS
+    Convert-AzureAdObjectIdToSid - Converts an Azure AD Object ID (GUID) to an Azure AD SID (Security Identifier).
+    Convert-SidToAzureAdObjectId - Converts an Azure AD SID back to an Object ID (GUID).
 
+.NOTES
     Version:        1.0.0
     Author:         Robert Lohman
     Creation Date:  30.03.2025
-    Updated:    
-    Version history:
-        1.0.0 - (30.03.2025) Script released
+    Updated:        30.03.2025
 
-The script is provided "AS IS" with no warranties.
+    Version history:
+        1.0.0 - Initial release
+
+    License: Provided "AS IS" with no warranties. Use at your own risk.
+
 #>
 
-#Variables
+# ========================
+# Variables
+# ========================
 
-#Put your SID here
+# Enter your SID here
 $sidTest = ""
 
-#or Object ID here
+# Enter your Object ID here
 $objectId = ""
 
 
+# ========================
+# Function: Convert-AzureAdObjectIdToSid
+# ========================
+
 function Convert-AzureAdObjectIdToSid {
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory=$true)]
         [String] $ObjectID
     )
 
@@ -46,8 +58,14 @@ function Convert-AzureAdObjectIdToSid {
     }
 }
 
+# ========================
+# Function: Convert-SidToAzureAdObjectId
+# ========================
+
 function Convert-SidToAzureAdObjectId {
+    [CmdletBinding()]
     param (
+        [Parameter(Mandatory=$true)]
         [string]$SID
     )
 
@@ -62,21 +80,14 @@ function Convert-SidToAzureAdObjectId {
             Throw "The SID must contain exactly four parts after 'S-1-12-1-'"
         }
 
-        # Create an empty byte array
         $bytes = New-Object byte[] 16
 
-        # Convert each part to bytes and fill the byte array
         for ($i = 0; $i -lt 4; $i++) {
             $partBytes = [BitConverter]::GetBytes([UInt32]::Parse($parts[$i]))
-
-            # Reverse byte order for each UInt32 (little-endian to big-endian)
             [Array]::Reverse($partBytes)
-
-            # Copy into the byte array (4 bytes at a time)
             [Array]::Copy($partBytes, 0, $bytes, $i * 4, 4)
         }
 
-        # Create GUID from the byte array
         $guid = New-Object Guid (,$bytes)
         return $guid.ToString()
     }
@@ -85,7 +96,10 @@ function Convert-SidToAzureAdObjectId {
     }
 }
 
-#conversion from Object ID to SID
+# ========================
+# Conversion Operations
+# ========================
+
 if ($objectId -ne "") {
     $sid = Convert-AzureAdObjectIdToSid -ObjectID $objectId
     Write-Output "Object ID to SID: $sid"
@@ -93,7 +107,6 @@ if ($objectId -ne "") {
     Write-Output "No Object ID provided, skipping conversion."
 }
 
-#conversion from SID to Object ID
 if ($sidTest -ne "") {
     $objectIdTest = Convert-SidToAzureAdObjectId -SID $sidTest
     Write-Output "SID to Object ID: $objectIdTest"
