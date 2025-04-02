@@ -188,37 +188,34 @@ catch {
     Write-Warning "Error exporting Autopilot Sync Information to $OutputFileName"
 }
 
-# Count installation time
-
-    $EndDateTime = $Event.deploymentEndDateTime
-	$StartDateTime = $Event.deploymentStartDateTime
-    
-
-    $StartTime = $StartDateTime 
-	$Formated_StartDateTime = [datetime]$StartTime
-
-	$EndTime = $EndDateTime 
-	$Formated_EndDateTime = [datetime]$EndTime	
-
-	$Total_Duration = $Formated_EndDateTime - $Formated_StartDateTime
-	$Formated_Duration = $Total_Duration.ToString("hh' hours 'mm' minutes 'ss' seconds'")
-
 # Export Autopilot Deployment Information
 $AutoPilot = foreach ($Event in $FilteredEvents) {
+# Calculate installation time for each individual event
+if ($Event.deploymentStartDateTime -and $Event.deploymentEndDateTime) {
+    $StartDateTime = [datetime]::Parse($Event.deploymentStartDateTime)
+    $EndDateTime = [datetime]::Parse($Event.deploymentEndDateTime)
+    
+    $Total_Duration = $EndDateTime - $StartDateTime
+    $Formated_Duration = $Total_Duration.ToString("hh\:mm\:ss")
+}
+else {
+    $Formated_Duration = "N/A"
+}
+
     [PSCustomObject]@{
         'Autopilot Start'   = $Event.deploymentStartDateTime
         'Autopilot End'     = $Event.deploymentEndDateTime
         'Installation time' = $Formated_Duration
-         DeploymentState    = $Event.deploymentState         
-         Enroller           = $Event.userPrincipalName
-         deviceId           = $Event.deviceId
-         'Device Name'      = $DeviceNameLookup[$Event.deviceId] # Hämtar Device Name från hashtable
-         EnrollmentType     = $Event.enrollmentType
-         OSVersion          = $Event.OSVersion
-         SerialNumber = $Event.deviceSerialNumber
-
+        DeploymentState    = $Event.deploymentState         
+        Enroller           = $Event.userPrincipalName
+        deviceId           = $Event.deviceId
+        'Device Name'      = $DeviceNameLookup[$Event.deviceId] 
+        EnrollmentType     = $Event.enrollmentType
+        OSVersion          = $Event.OSVersion
+        SerialNumber       = $Event.deviceSerialNumber
     }
 }
+
 try {
     $AutoPilot | Export-Excel -Path $OutputFileName -WorksheetName "Autopilot_$date" -AutoFilter -AutoSize -Append
     Write-Host "Exported Autopilot Deployment Information to $OutputFileName" -ForegroundColor Green
